@@ -1,0 +1,8 @@
+<VirtualHost *:{{ httpd_port }}>
+    DocumentRoot /var/www/html/default
+    ServerName {{ site_name }}
+    # Other directives here
+    <Directory /var/www/html/default>
+      AllowOverride All
+    </Directory>
+</VirtualHost>
