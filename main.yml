@@ -1,0 +1,65 @@
+---
+- name: "Deploying sample website"
+  hosts: amazon
+  become: true
+  vars:
+    packages:
+      - httpd
+      - php
+      - git
+    httpd_port: 80
+    httpd_owner: apache
+    httpd_group: apache
+    site_name: site.jeethu.shop
+  tasks:
+    - name: "Installing packages"
+      yum:
+        name: "{{ packages }}"
+        state: present
+
+    - name: "Uploading httpd conf template"
+      template:
+        src: ./httpd.conf.tmpl
+        dest: /etc/httpd/conf/httpd.conf
+      register: conf_status
+
+    - name: "Uploading virtual host template"
+      template:
+        src: ./vhost.conf.tmpl
+        dest: /etc/httpd/conf.d/default.conf
+      register: vhost_status
+
+
+    - name: "Creating default document root"
+      file:
+        path: /var/www/html/default
+        state: directory
+
+
+    - name: "Cloning the git repo to local machine"
+      git:
+        repo: 'https://github.com/lynxmaestro/aws-elb-site.git'
+        dest: /var/website/
+
+    - name: "Copying /var/website/ to document root"
+      copy:
+        src: /var/website/
+        dest: /var/www/html/default/
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+        remote_src: yes
+      register: copy_status
+
+    - name: "Restarting service httpd"
+      when: conf_status == true or vhost_status == true
+      service:
+        name: httpd
+        state: restarted
+        enabled: true
+
+    - name: "Restarting service php-fpm"
+      when: copy_status == true
+      service:
+        name: php-fpm
+        state: restarted
+        enabled: true
