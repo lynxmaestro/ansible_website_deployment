@@ -14,3 +14,40 @@ Let’s break down the playbook.
   6. Copying the website contents to the document root created.
   7. Restarting both apache and php services.
 
+ ### 1. Play Definition
+ ~~~
+- name: "Deploying sample website"
+  hosts: amazon
+  become: true
+~~~
+- name: A description of what this playbook does.
+- hosts: amazon: Tells Ansible to run these tasks on machines labeled as amazon.
+- become: true: Runs tasks with admin (sudo) privilege.
+
+### 2. Variables (vars)
+~~~
+vars:
+    packages:
+      - httpd
+      - php
+      - git
+    httpd_port: 80
+    httpd_owner: apache
+    httpd_group: apache
+    site_name: site.jeethu.shop
+~~~
+- packages: List of software to install.
+- httpd_port: The port the web server will use (standard HTTP port 80).
+- httpd_owner/group: The user and group under which Apache runs.
+- site_name: The domain name for the website.
+
+#### Task 1: Install Required Packages
+~~~
+- name: "Installing packages"
+  yum:
+    name: "{{ packages }}"
+    state: present
+~~~
+- Uses the yum package manager (for CentOS/RHEL systems).
+- Installs httpd (Apache), PHP , and git on client machines.
+- state: present means “make sure these are installed”.
