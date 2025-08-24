@@ -16,19 +16,23 @@
       yum:
         name: "{{ packages }}"
         state: present
+      notify:
+        - "restart_httpd"
+        - "restart_php"
 
     - name: "Uploading httpd conf template"
       template:
         src: ./httpd.conf.tmpl
         dest: /etc/httpd/conf/httpd.conf
-      register: conf_status
+      notify:
+        - "restart_httpd"
 
     - name: "Uploading virtual host template"
       template:
         src: ./vhost.conf.tmpl
         dest: /etc/httpd/conf.d/default.conf
-      register: vhost_status
-
+      notify:
+        - "restart_httpd"
 
     - name: "Creating default document root"
       file:
@@ -50,16 +54,16 @@
         remote_src: yes
       register: copy_status
 
-    - name: "Restarting service httpd"
-      when: conf_status == true or vhost_status == true
+  handlers:  
+    - name: "restart_httpd"
       service:
         name: httpd
         state: restarted
         enabled: true
 
-    - name: "Restarting service php-fpm"
-      when: copy_status == true
+    - name: "restart_php"
       service:
         name: php-fpm
         state: restarted
         enabled: true
+
