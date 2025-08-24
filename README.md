@@ -12,7 +12,7 @@ Let’s break down the playbook.
   4. Creating a custom document apache document root as mentioned on virtual host entry.
   5. Cloing the website from git to  the client server.
   6. Copying the website contents to the document root created.
-  7. Restarting both apache and php services.
+  7. Restarting both apache and php services using handlers.
 
  ### 1. Play Definition
  ~~~
@@ -47,7 +47,48 @@ vars:
   yum:
     name: "{{ packages }}"
     state: present
+  notify:
+        - "restart_httpd"
+        - "restart_php"
 ~~~
 - Uses the yum package manager (for CentOS/RHEL systems).
 - Installs httpd (Apache), PHP , and git on client machines.
 - state: present means “make sure these are installed”.
+- notify: Give a notification to both restart_httpd and restart_php handlers when the changed status is "true"
+
+### Task 2 : Uploading httpd.conf template to client machine
+~~~
+- name: "Uploading httpd conf template"
+      template:
+        src: ./httpd.conf.tmpl
+        dest: /etc/httpd/conf/httpd.conf
+      notify:
+        - "restart_httpd"
+~~~
+- Using the template module apache configuration file is uploaded to client machine.
+- httpd port is declared as a variable. which will be replaced with the value while ansible runs the task.
+- If there are any changes made to the configuration file notification will be given to restart_httpd handler.
+~~~
+Listen {{ httpd_port }}
+~~~
+
+### Task 3: Uploading virtual host template.
+~~~
+- name: "Uploading virtual host template"
+      template:
+        src: ./vhost.conf.tmpl
+        dest: /etc/httpd/conf.d/default.conf
+      notify:
+        - "restart_httpd"
+~~~
+~~~
+cat vhost.conf.tmpl 
+<VirtualHost *:{{ httpd_port }}>
+    DocumentRoot /var/www/html/default
+    ServerName {{ site_name }}
+    # Other directives here
+    <Directory /var/www/html/default>
+      AllowOverride All
+    </Directory>
+</VirtualHost>
+~~~
