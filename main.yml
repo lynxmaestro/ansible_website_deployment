@@ -1,32 +1,35 @@
 ---
-- name: "Deploying sample website"
-  hosts: amazon
+- name: "LAMP Deployment"
+  hosts: all
   become: true
   vars:
-    packages:
-      - httpd
-      - php
-      - git
-    httpd_port: 80
-    httpd_owner: apache
-    httpd_group: apache
-    site_name: site.jeethu.shop
+    - httpd_port: 80
+    - httpd_owner: apache
+    - httpd_group: apache
+    - site_name: site.jeethu.shop
+    - wp_url: https://wordpress.org/wordpress-6.8.tar.gz
+    - database_name: "wordpress"
+    - database_user: "wpuser"
+    - database_password: "wpuser123"
+    - packages:
+        - httpd
+        - php
+        - php-mysqlnd
+    
   tasks:
     - name: "Installing packages"
       yum:
         name: "{{ packages }}"
         state: present
-      notify:
-        - "restart_httpd"
-        - "restart_php"
 
-    - name: "Uploading httpd conf template"
+    - name: "Uploading httpd template file"
       template:
         src: ./httpd.conf.tmpl
         dest: /etc/httpd/conf/httpd.conf
       notify:
         - "restart_httpd"
-
+        - "restart_php"
+   
     - name: "Uploading virtual host template"
       template:
         src: ./vhost.conf.tmpl
@@ -34,27 +37,58 @@
       notify:
         - "restart_httpd"
 
-    - name: "Creating default document root"
+
+    - name: "Creating document root"
       file:
         path: /var/www/html/default
         state: directory
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
 
-
-    - name: "Cloning the git repo to local machine"
-      git:
-        repo: 'https://github.com/lynxmaestro/aws-elb-site.git'
-        dest: /var/website/
-
-    - name: "Copying /var/website/ to document root"
+    - name: "Restarting service"
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: true
+      with_items:
+        - httpd
+        - php-fpm
+    
+    - name: "Copying test pages to /var/www/html/"
       copy:
-        src: /var/website/
+        src: "{{ item }}"
+        dest: /var/www/html/
+      with_items:
+        - index.html
+        - index.php
+
+    - name: "Wordpress-Downloading {{ wp_url }}"
+      get_url:
+        url: "{{ wp_url }}"
+        dest: /tmp/wordpress.tar.gz
+      
+    - name: "Wordpress- Extracting {{ wp_url }}"
+      unarchive:
+        src: /tmp/wordpress.tar.gz
+        dest: /var/
+        remote_src: true
+
+    - name: "Wordpress Copying files to document root"
+      copy:
+        src: /var/wordpress/
         dest: /var/www/html/default/
         owner: "{{ httpd_owner }}"
         group: "{{ httpd_group }}"
-        remote_src: yes
-      register: copy_status
+        remote_src: true
 
-  handlers:  
+    - name: "Wordpress - Creating wp-config.php"
+      template:
+        src: ./wp-config.php.tmpl
+        dest: /var/www/html/default/wp-config.php
+        owner: "{{ httpd_owner }}"
+        group: "{{ httpd_group }}"
+
+  handlers:
     - name: "restart_httpd"
       service:
         name: httpd
@@ -66,4 +100,3 @@
         name: php-fpm
         state: restarted
         enabled: true
-
