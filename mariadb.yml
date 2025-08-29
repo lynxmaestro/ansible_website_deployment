@@ -1,0 +1,63 @@
+---
+- name: "MariaDB Deployment"
+  hosts: all
+  become: true
+  vars:
+    - packages:
+        - mariadb1011-server
+        - python3-pip
+    - mysql_root_password: "mysqlroot123"
+    - database_name: "wordpress"
+    - database_user: "wpuser"
+    - database_password: "wpuser123"
+  tasks:
+    - name: "Installing packages"
+      yum:
+        name: "{{ packages }}"
+        state: present
+
+    - name: "PyMysql module installation"
+      pip:
+        name: PyMySQL
+
+    - name: "Enabling/Restarting MariaDB"
+      service:
+        name: mariadb
+        state: restarted
+        enabled: true
+
+    - name: "Resetting mysql root password"
+      mysql_user:
+        login_user: root
+        login_password: ""
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        user: root
+        password: "{{ mysql_root_password }}"
+      ignore_errors: true
+      
+
+    - name: "Creating a new database called {{ database_name }}"
+      mysql_db:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        name: "{{ database_name }}"    
+        state: present
+
+    - name: "Creating database user called {{ database_user }}"
+      mysql_user:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        name: "{{ database_user }}"
+        password: "{{ database_password }}"
+        priv: '{{ database_name }}.*:ALL,GRANT'
+        state: present
+
+    - name: "Removes anonymous user account"
+      mysql_user:
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/lib/mysql/mysql.sock
+        name: ''
+        state: absent
